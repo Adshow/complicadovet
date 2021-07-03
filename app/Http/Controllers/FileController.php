@@ -5,6 +5,9 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Pessoa;
 use App\Models\Contato;
+use App\Models\Animal;
+use App\Models\Raca;
+use App\Models\Especie;
 
 class FileController extends Controller
 {
@@ -46,7 +49,7 @@ class FileController extends Controller
                 }
                 $file = fopen($tables[$i].'.csv', 'w');
                 
-                $row = $result->fetch_array(MYSQLI_NUM);
+                //$row = $result->fetch_array(MYSQLI_NUM);
 
                 if ($file && $result) 
                 {
@@ -77,7 +80,6 @@ class FileController extends Controller
     {
         try
         {    
-            \DB::beginTransaction();
             if($request->hasFile('files'))
             {
                 foreach($request->file('files') as $file)
@@ -89,15 +91,49 @@ class FileController extends Controller
                     $file_handle = fopen(storage_path()."/app/uploads/".$nome, 'r');
                     
                     fgetcsv($file_handle); // consome a linha de header
-
+                    $i = 0;
                     while( ($line = fgetcsv($file_handle,2000,';')) !== FALSE) 
                     {       
+                            
                             if($nome == "animal.csv")
                             {
-                                dd($line);
+                                \DB::beginTransaction();
+                                $animal = new Animal();
+
+                                $animal->id = $line[0];
+                                
+                                $pessoa_id = $this->verificaDono($line[1]);
+                                
+                                if(!$pessoa_id)
+                                {
+                                    $animal->destroy($animal->id);
+                                    continue;
+                                }
+                                
+                                $animal->pessoa_id = $pessoa_id;
+
+                                $animal->nome = $line[2];
+
+                                $animal->raca_id = $this->verificaRaca($line[3]);
+
+                                $animal->especie_id = $this->verificaEspecie($line[4]);
+
+                                $animal->historico_clinico = $line[5] ? $line[5] : null;
+                                
+                                $nasc =  $line[6] ? $line[6] : null;
+                                
+                                $animal->nascimento = $this->verificaData($nasc);
+
+                                if($animal->save())
+                                {
+                                    \DB::commit();
+                                }
+                                else
+                                    throw(new Exception('Erro ao Salvar Animal!', 500));
                             }
                             else
                             {
+                                \DB::beginTransaction();
                                 $pessoa = new Pessoa();
 
                                 $pessoa->id = $line[0];
@@ -110,13 +146,16 @@ class FileController extends Controller
                                 $contato = $this->processaContato($tel1, $tel2, $email, $line[0]);
 
                                 if($pessoa->save() && $contato->save())
+                                {
+                                    \DB::commit();
                                     continue;
+
+                                }    
                                 else
                                     throw(new Exception('Erro ao Salvar', 500));
                             }
                     }
-
-                    \DB::commit();
+                    
                     fclose($file_handle);
 
                     return response()->json('Arquivo importado com sucesso', 200);
@@ -218,5 +257,62 @@ class FileController extends Controller
     function validarEmail($email)
     {
         return filter_var($email, FILTER_VALIDATE_EMAIL);
+    }
+
+    function verificaRaca($raca)
+    {
+        $result = Raca::where('nome', '=', strtoupper($raca))->first();
+
+        if(!$result)
+        {
+            $new_raca = new Raca();
+            $new_raca->nome = strtoupper($raca);
+
+            $new_raca->save();
+
+            return $new_raca->id;
+        }
+        else
+            return $result->id;
+    }
+
+    function verificaEspecie($especie)
+    {
+        $result = Especie::where('nome', '=', strtoupper($especie))->first();
+
+        if(!$result)
+        {
+            $new_especie = new Especie();
+            $new_especie->nome = strtoupper($especie);
+
+            $new_especie->save();
+
+            return $new_especie->id;
+        }
+        else
+            return $result->id;
+    }
+
+    function verificaData($data)
+    {
+        if(!$data)
+            return null;
+        else
+        {
+            $date = date("Y-m-d", strtotime($data));
+
+            return $date;
+        }
+    }
+
+    function verificaDono($pessoa_id)
+    {
+        $pessoa = Pessoa::find($pessoa_id);
+
+        if($pessoa)
+            return $pessoa->id;
+        else
+            return null;
+        
     }
 }
