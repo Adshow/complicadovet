@@ -77,50 +77,49 @@ class FileController extends Controller
     {
         try
         {    
+            \DB::beginTransaction();
             if($request->hasFile('files'))
             {
                 foreach($request->file('files') as $file)
                 {
-                    $nome = $file->hashName();
+                    $nome = $file->getClientOriginalName();
 
-                    $original_name = $file->getClientOriginalName();
+                    $file->storeAs('uploads', $nome);
 
-                    $file->store('uploads');
-                                            
                     $file_handle = fopen(storage_path()."/app/uploads/".$nome, 'r');
-                    $i = 0;
+                    
+                    fgetcsv($file_handle); // consome a linha de header
 
-                    while(!feof($file_handle))
-                    {
-                        if($i == 0)
-                            $headers = explode(";", fgetcsv($file_handle)[0]);
-                        else
-                        {
-                            if($original_name == "animal.csv")
+                    while( ($line = fgetcsv($file_handle,2000,';')) !== FALSE) 
+                    {       
+                            if($nome == "animal.csv")
                             {
-                                $line = $this->getLine($file_handle);
                                 dd($line);
                             }
                             else
                             {
-                                $line = $this->getLine($file_handle);
-                                
                                 $pessoa = new Pessoa();
 
                                 $pessoa->id = $line[0];
                                 $pessoa->nome = $line[1];
 
-                                $contato = $this->processaContato($line[2], $line[3], $line[4], $line[0]);
+                                $tel1 = $line[2] ? $line[2] : null;
+                                $tel2 = $line[3] ? $line[3] : null;
+                                $email = $line[4] ? $line[4] : null;
 
-                                dd($contato);
+                                $contato = $this->processaContato($tel1, $tel2, $email, $line[0]);
 
+                                if($pessoa->save() && $contato->save())
+                                    continue;
+                                else
+                                    throw(new Exception('Erro ao Salvar', 500));
                             }
-                        }
-                        $i++;
                     }
 
+                    \DB::commit();
                     fclose($file_handle);
-                
+
+                    return response()->json('Arquivo importado com sucesso', 200);
 
                 }
             }
@@ -129,17 +128,13 @@ class FileController extends Controller
         }
         catch(\Exception $e)
         {
+            \DB::rollback();
             dd($e);
             return response()->json($e->getMessage(), 500);
         }
     }
 
-    public function getLine($handle)
-    {
-        return explode(";", fgetcsv($handle)[0]);
-    }
-
-    public function processaContato($telefone1, $telefone2, $email, $pessoa_id)
+    public function processaContato($telefone1 = null, $telefone2 = null, $email = null, $pessoa_id)
     {
         $contato = new Contato();
 
@@ -216,7 +211,7 @@ class FileController extends Controller
 
         $dados['tipo'] = $tipotelefone;
         $dados['numero'] = $telefone;
-
+        
         return $dados;
     }
 

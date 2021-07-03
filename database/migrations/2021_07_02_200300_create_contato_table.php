@@ -16,9 +16,9 @@ class CreateContatoTable extends Migration
         Schema::create('contato', function (Blueprint $table) {
             $table->id();
             $table->string('telefone_1', 32)->nullable();
-            $table->string('tipo_telefone1', 32)->nullable();
+            $table->string('tipo_telefone_1', 32)->nullable();
             $table->string('telefone_2', 32)->nullable();
-            $table->string('tipo_telefone2', 32)->nullable();
+            $table->string('tipo_telefone_2', 32)->nullable();
             $table->string('email', 64)->nullable();
             $table->unsignedBigInteger('pessoa_id');
 
