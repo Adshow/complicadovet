@@ -112,7 +112,7 @@ class FileController extends Controller
 
                                 $contato = $this->processaContato($line[2], $line[3], $line[4], $line[0]);
 
-
+                                dd($contato);
 
                             }
                         }
@@ -143,6 +143,7 @@ class FileController extends Controller
     {
         $contato = new Contato();
 
+        $contato->pessoa_id = $pessoa_id;
         $dados1 = $this->tratarTelefone($telefone1);
         $dados2 = $this->tratarTelefone($telefone2);
 
@@ -152,7 +153,12 @@ class FileController extends Controller
         $contato->telefone_2 = $dados2['numero'];
         $contato->tipo_telefone_2 = $dados2['tipo'];
 
-        dd($contato);
+        if($this->validarEmail($email))
+            $contato->email = $email;
+        else
+            $contato->email = null;
+
+        return $contato;
     }
 
     function mascara($mask, $str){
@@ -212,5 +218,10 @@ class FileController extends Controller
         $dados['numero'] = $telefone;
 
         return $dados;
+    }
+
+    function validarEmail($email)
+    {
+        return filter_var($email, FILTER_VALIDATE_EMAIL);
     }
 }
