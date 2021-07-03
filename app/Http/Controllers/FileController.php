@@ -69,4 +69,62 @@ class FileController extends Controller
             return response()->json($e->getMessage(), 500);
         }
     }
+
+    
+    public function processarCsv(Request $request)
+    {
+        try
+        {    
+            if($request->hasFile('files'))
+            {
+                foreach($request->file('files') as $file)
+                {
+                    $nome = $file->hashName();
+
+                    $original_name = $file->getClientOriginalName();
+
+                    $file->store('uploads');
+                                            
+                    $file_handle = fopen(storage_path()."/app/uploads/".$nome, 'r');
+                    $i = 0;
+
+                    while(!feof($file_handle))
+                    {
+                        if($i == 0)
+                            $headers = explode(";", fgetcsv($file_handle)[0]);
+                        else
+                        {
+                            if($original_name == "animal.csv")
+                            {
+                                $line = $this->getLine($file_handle);
+                                dd($line);
+                            }
+                            else
+                            {
+                                $line = $this->getLine($file_handle);
+                                dd($line);
+                            }
+                        }
+                        $i++;
+                    }
+
+                    fclose($file_handle);
+                
+
+                }
+            }
+            else
+                return response()->json('Favor upar os arquivos!', 500);
+        }
+        catch(\Exception $e)
+        {
+            dd($e);
+            return response()->json($e->getMessage(), 500);
+        }
+    }
+
+    public function getLine($handle)
+    {
+        return explode(";", fgetcsv($handle)[0]);
+    }
 }
