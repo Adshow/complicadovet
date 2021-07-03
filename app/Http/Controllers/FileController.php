@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use App\Models\Pessoa;
+use App\Models\Contato;
 
 class FileController extends Controller
 {
@@ -102,7 +104,16 @@ class FileController extends Controller
                             else
                             {
                                 $line = $this->getLine($file_handle);
-                                dd($line);
+                                
+                                $pessoa = new Pessoa();
+
+                                $pessoa->id = $line[0];
+                                $pessoa->nome = $line[1];
+
+                                $contato = $this->processaContato($line[2], $line[3], $line[4], $line[0]);
+
+
+
                             }
                         }
                         $i++;
@@ -126,5 +137,80 @@ class FileController extends Controller
     public function getLine($handle)
     {
         return explode(";", fgetcsv($handle)[0]);
+    }
+
+    public function processaContato($telefone1, $telefone2, $email, $pessoa_id)
+    {
+        $contato = new Contato();
+
+        $dados1 = $this->tratarTelefone($telefone1);
+        $dados2 = $this->tratarTelefone($telefone2);
+
+        $contato->telefone_1 = $dados1['numero'];
+        $contato->tipo_telefone_1 = $dados1['tipo'];
+
+        $contato->telefone_2 = $dados2['numero'];
+        $contato->tipo_telefone_2 = $dados2['tipo'];
+
+        dd($contato);
+    }
+
+    function mascara($mask, $str){
+
+        $str = str_replace(" ","",$str);
+    
+        for($i=0;$i<strlen($str);$i++){
+            $mask[strpos($mask,"#")] = $str[$i];
+        }
+    
+        return $mask;
+    
+    }
+
+    public function tratarTelefone($telefone)
+    {
+        $telefone = preg_replace("/[^0-9]/", "", $telefone); //remove não numéricos
+        
+        $telefone = ltrim($telefone, '0'); //ignora se o primeiro digito do ddd for 0
+        
+        if(strlen($telefone) == 10 || strlen($telefone) == 11) // ddd + telefone com 9 ou não
+            $primeiro_digito = $telefone[2]; //primeiro digito apos ddd
+        else
+            $telefone = null; //telefone inválido
+        
+        if($telefone)
+        {   
+            if($primeiro_digito >=2 && $primeiro_digito <=5) //FIXO - 2 a 5
+            {
+                $tipotelefone = 'FIXO';
+                $telefone = $this->mascara('(##)####-####', $telefone);
+            }
+            else if($primeiro_digito > 5) // CELULAR - 6 a 9
+            {
+                $tipotelefone = 'CELULAR';
+                
+                if(strlen($telefone) == 10) //sem o 9
+                    $telefone = $this->mascara('(##)9####-####', $telefone);
+                else
+                    $telefone = $this->mascara('(##)#####-####', $telefone);
+            }
+            else //INVÁLIDO
+            {
+                $tipotelefone = null;
+                $telefone = null;
+            }
+        }
+        else
+        {
+            $tipotelefone = null;
+            $telefone = null;
+        }
+
+        $dados = array();
+
+        $dados['tipo'] = $tipotelefone;
+        $dados['numero'] = $telefone;
+
+        return $dados;
     }
 }
