@@ -297,12 +297,14 @@ class FileController extends Controller
     {
         if(!$data)
             return null;
-        else
-        {
-            $date = date("Y-m-d", strtotime($data));
-
-            return $date;
+        
+        if (preg_match("/\d{4}\-\d{2}-\d{2}/", $data))// é formato de banco ?
+        {    
+            $novadata = new \DateTime($data);
+            return $novadata->format('d/m/yy');
         }
+        else 
+            return $data;
     }
 
     function verificaDono($pessoa_id)
